@@ -1,38 +1,173 @@
 <!DOCTYPE html>
-<!--
-  MÁSCARA PARA GITHUB PAGES (opcional)
-  Sirve ÚNICAMENTE para quitar la franja gris de Google («Esta aplicación
-  fue creada por un usuario de Google Apps Script»). Muestra tu misma
-  invitación de Apps Script dentro de esta página.
-
-  Cómo usarla:
-  1. En GitHub crea un repositorio público (ej. «boda-ana-luis»).
-  2. Sube este archivo con el nombre index.html.
-  3. Abajo, cambia LINK_APP por tu link de Apps Script (el que termina en /exec)
-     y el título.
-  4. En el repositorio: Settings > Pages > Branch: main > Save.
-     Tu link será: https://TU-USUARIO.github.io/boda-ana-luis/
-  5. Comparte ESE link con tus invitados. Opcional: pégalo en
-     EVENTO.linkPublico (Code.gs) para que el panel comparta ese link.
--->
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Ana &amp; Luis — ¡Nos casamos!</title>
+<!-- MULTILOCAL CHILE · máscara para GitHub Pages (súbalo como index.html) · Desarrollado por FerPaul · https://ferpaul.com -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1E1E2F">
+<title>Inventario y ventas</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  html,body{margin:0;height:100%;background:#991B53}
-  iframe{position:fixed;inset:0;width:100%;height:100%;border:0;display:block}
+  :root { --navy: #021640; --accent: #00D4C7; --oscuro: #1E1E2F; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--oscuro); font-family: 'Poppins', system-ui, sans-serif; overflow: hidden; }
+  #app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #F5F7FB; }
+  #cargando { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #FFF; background: linear-gradient(135deg, #1E1E2F, #021640); z-index: 5; transition: opacity .3s; text-align: center; padding: 20px; }
+  .spinner { width: 38px; height: 38px; border: 4px solid rgba(255,255,255,.2); border-top-color: var(--accent); border-radius: 50%; animation: g .8s linear infinite; }
+  @keyframes g { to { transform: rotate(360deg); } }
+  #camara { position: fixed; inset: 0; background: #000; z-index: 10; display: none; flex-direction: column; }
+  #camara.ver { display: flex; }
+  #camara video { flex: 1; width: 100%; object-fit: cover; min-height: 0; }
+  .marco { position: absolute; left: 8%; right: 8%; top: 36%; height: 22%; border: 3px solid var(--accent); border-radius: 14px; box-shadow: 0 0 0 9999px rgba(0,0,0,.45); pointer-events: none; }
+  .marco::after { content: ''; position: absolute; left: 4%; right: 4%; top: 50%; height: 2px; background: #FF4D4D; box-shadow: 0 0 8px #FF4D4D; animation: l 1.6s ease-in-out infinite alternate; }
+  @keyframes l { from { transform: translateY(-30px); } to { transform: translateY(30px); } }
+  .barra { position: absolute; left: 0; right: 0; bottom: 0; padding: 16px; display: flex; gap: 10px; justify-content: center; align-items: center; background: linear-gradient(transparent, rgba(0,0,0,.8)); }
+  .txt { position: absolute; top: 20px; left: 0; right: 0; text-align: center; color: #FFF; font-size: 15px; font-weight: 600; text-shadow: 0 1px 4px #000; padding: 0 16px; }
+  button { font-family: inherit; font-size: 15px; font-weight: 600; border: 0; border-radius: 10px; padding: 12px 22px; cursor: pointer; }
+  .b-cerrar { background: #FFF; color: var(--navy); }
+  .b-luz { background: rgba(255,255,255,.18); color: #FFF; }
+  .config { background: #FFF; color: var(--navy); border-radius: 16px; padding: 26px; max-width: 460px; text-align: left; line-height: 1.6; font-size: 14px; }
+  .config code { background: #EEF2F7; padding: 2px 6px; border-radius: 4px; }
 </style>
 </head>
 <body>
-<iframe id="app" title="Invitación" allow="clipboard-write; fullscreen"></iframe>
+<div id="cargando"><div class="spinner"></div><div>Abriendo el sistema…</div></div>
+<iframe id="app" title="Sistema" allow="clipboard-write"></iframe>
+<div id="camara"><video id="video" playsinline muted autoplay></video><div class="marco"></div><div class="txt" id="cam-txt">Apunte al código de barras</div>
+  <div class="barra"><button class="b-luz" id="b-luz" hidden>Linterna</button><button class="b-cerrar" id="b-cerrar">Cerrar cámara</button></div></div>
 <script>
-  // Pega aquí el link de tu app de Apps Script (termina en /exec):
-  var LINK_APP = 'https://script.google.com/macros/s/AKfycbyNByyUy1I471_DP7Eh7BsAWgfbtr_h9LQbk3rpRejB19jeVNreMvzbIOowoKuWclrW9g/exec';
-  document.getElementById('app').src = LINK_APP + location.search;
+// ============ CONFIGURE AQUÍ: enlace /exec de la aplicación publicada ============
+var URL_APP = 'https://script.google.com/macros/s/AKfycbxilOPAxTULFiobIqZEdMlW8Y1Hun5UTBps8Dpc9Z5s2PBDPvJYqMb_u0Z7SKSoj3r_lQ/exec';
+// =============================================================================
+(function() {
+  var app = document.getElementById('app'), carga = document.getElementById('cargando'), cam = document.getElementById('camara'), video = document.getElementById('video');
+  var destino = null, origenDestino = '*', flujo = null, buscando = false, detector = null, ultimo = '', canvas = document.createElement('canvas');
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(URL_APP)) {
+    carga.innerHTML = '<div class="config"><b>Falta configurar la máscara</b><br>Abra este archivo en GitHub, busque <code>var URL_APP = \'\'</code> y pegue entre las comillas el enlace de la aplicación publicada (termina en <code>/exec</code>).</div>';
+    return;
+  }
+  app.src = URL_APP;
+  app.addEventListener('load', function() { setTimeout(function() { carga.style.opacity = '0'; setTimeout(function() { carga.style.display = 'none'; }, 300); }, 600); });
+  function permitido(o) { return o === 'https://script.google.com' || /^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(o) || /^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/.test(o); }
+  function enviar(m) { if (!destino) return; m.origen = 'multilocal-mascara'; try { destino.postMessage(m, origenDestino); } catch (e) { /* nada */ } }
+  window.addEventListener('message', function(e) {
+    var d = e.data;
+    if (!d || typeof d !== 'object' || d.origen !== 'multilocal' || !permitido(e.origin)) return;
+    destino = e.source; origenDestino = e.origin;
+    if (d.tipo === 'hola') enviar({ tipo: 'hola' });
+    else if (d.tipo === 'scan-iniciar') abrir();
+    else if (d.tipo === 'scan-parar') cerrar();
+  });
+  function abrir() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { enviar({ tipo: 'scan-error', mensaje: 'Este navegador no permite usar la cámara. Pruebe con Chrome o Safari actualizados.' }); return; }
+    cam.classList.add('ver'); ultimo = '';
+    document.getElementById('cam-txt').textContent = 'Apunte al código de barras';
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }).then(function(s) {
+      flujo = s; video.srcObject = s; video.play();
+      var pista = s.getVideoTracks()[0], cap = pista.getCapabilities ? pista.getCapabilities() : {};
+      var bl = document.getElementById('b-luz'); bl.hidden = !cap.torch; var luz = false;
+      bl.onclick = function() { luz = !luz; pista.applyConstraints({ advanced: [{ torch: luz }] }).catch(function() {}); };
+      if ('BarcodeDetector' in window) { try { detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'upc_e'] }); } catch (e) { detector = null; } }
+      buscando = true; leer();
+    }).catch(function(e) { cerrar(); enviar({ tipo: 'scan-error', mensaje: 'No se pudo abrir la cámara: ' + (e && e.name === 'NotAllowedError' ? 'permiso denegado. Actívelo en la configuración del navegador.' : (e && e.message) || e) }); });
+  }
+  function cerrar() { buscando = false; cam.classList.remove('ver'); if (flujo) { flujo.getTracks().forEach(function(t) { t.stop(); }); flujo = null; } video.srcObject = null; }
+  document.getElementById('b-cerrar').onclick = cerrar;
+  function hallado(c) {
+    if (!c || c === ultimo) return;
+    ultimo = c;
+    try { navigator.vibrate && navigator.vibrate(120); } catch (e) { /* nada */ }
+    try { var a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(); o.frequency.value = 1400; o.connect(a.destination); o.start(); setTimeout(function() { o.stop(); a.close(); }, 90); } catch (e) { /* nada */ }
+    enviar({ tipo: 'scan-resultado', codigo: String(c) });
+    cerrar();
+  }
+  function leer() {
+    if (!buscando) return;
+    if (video.readyState < 2) { setTimeout(leer, 150); return; }
+    if (detector) { detector.detect(video).then(function(l) { if (l && l[0]) hallado(l[0].rawValue); else setTimeout(leer, 120); }, function() { detector = null; setTimeout(leer, 120); }); return; }
+    var w = video.videoWidth, h = video.videoHeight, recorte = Math.round(h * 0.5);
+    canvas.width = w; canvas.height = recorte;
+    var x = canvas.getContext('2d'); x.drawImage(video, 0, Math.round(h * 0.25), w, recorte, 0, 0, w, recorte);
+    var r = decodificarEAN(x.getImageData(0, 0, w, recorte));
+    if (r) hallado(r); else setTimeout(leer, 200);
+  }
+})();
+// =================================================================================================
+// LECTOR EAN-13 / EAN-8 propio: lee líneas de la imagen en horizontal y vertical, en ambos sentidos.
+// Sirve donde el navegador no trae BarcodeDetector (iPhone, Chrome de Windows).
+// =================================================================================================
+var EAN_L = ['3211', '2221', '2122', '1411', '1132', '1231', '1114', '1312', '1213', '3112'].map(function(s) { return s.split('').map(Number); });
+var EAN_PARIDAD = ['LLLLLL', 'LLGLGG', 'LLGGLG', 'LLGGGL', 'LGLLGG', 'LGGLLG', 'LGGGLG', 'LGLGLG', 'LGLGGL', 'LGGLGL'];
+function eanDigito(r, permitirG) {
+  var s = r[0] + r[1] + r[2] + r[3], mejor = null;
+  if (!s) return null;
+  var w = r.map(function(x) { return x * 7 / s; });
+  for (var d = 0; d < 10; d++) {
+    var p = EAN_L[d], eL = Math.abs(w[0] - p[0]) + Math.abs(w[1] - p[1]) + Math.abs(w[2] - p[2]) + Math.abs(w[3] - p[3]);
+    if (!mejor || eL < mejor.e) mejor = { d: d, t: 'L', e: eL };
+    if (permitirG) { var eG = Math.abs(w[0] - p[3]) + Math.abs(w[1] - p[2]) + Math.abs(w[2] - p[1]) + Math.abs(w[3] - p[0]); if (eG < mejor.e) mejor = { d: d, t: 'G', e: eG }; }
+  }
+  return mejor.e < 1.6 ? mejor : null;
+}
+function eanValido(c) { var s = 0, l = c.length; for (var i = 0; i < l - 1; i++) s += Number(c.charAt(i)) * ((l - 1 - i) % 2 ? 3 : 1); return (10 - s % 10) % 10 === Number(c.charAt(l - 1)); }
+function guardiaOk(r, i, k, mod) { for (var j = 0; j < k; j++) if (Math.abs(r[i + j] / mod - 1) > 0.7) return false; return true; }
+function eanDeRuns(runs, oscuroPrimero) {
+  // runs: anchos alternados; oscuroPrimero indica si runs[0] es barra
+  for (var i = oscuroPrimero ? 0 : 1; i + 59 <= runs.length; i += 2) {
+    // EAN-13: 3 + 24 + 5 + 24 + 3
+    var tot13 = 0; for (var a = 0; a < 59; a++) tot13 += runs[i + a];
+    var m13 = tot13 / 95;
+    if (guardiaOk(runs, i, 3, m13) && guardiaOk(runs, i + 27, 5, m13) && guardiaOk(runs, i + 56, 3, m13) && (i === 0 || runs[i - 1] > m13 * 3)) {
+      var cod = '', par = '', ok = true;
+      for (var dI = 0; dI < 6 && ok; dI++) { var x = eanDigito(runs.slice(i + 3 + dI * 4, i + 7 + dI * 4), true); if (!x) ok = false; else { cod += x.d; par += x.t; } }
+      for (var dD = 0; dD < 6 && ok; dD++) { var y = eanDigito(runs.slice(i + 32 + dD * 4, i + 36 + dD * 4), false); if (!y) ok = false; else cod += y.d; }
+      if (ok) { var pr = EAN_PARIDAD.indexOf(par); if (pr !== -1 && eanValido(pr + cod)) return pr + cod; }
+    }
+  }
+  for (var k = oscuroPrimero ? 0 : 1; k + 43 <= runs.length; k += 2) {
+    var tot8 = 0; for (var b = 0; b < 43; b++) tot8 += runs[k + b];
+    var m8 = tot8 / 67;
+    if (!guardiaOk(runs, k, 3, m8) || !guardiaOk(runs, k + 19, 5, m8) || !guardiaOk(runs, k + 40, 3, m8) || (k > 0 && runs[k - 1] < m8 * 3)) continue;
+    var c8 = '', ok8 = true;
+    for (var e = 0; e < 4 && ok8; e++) { var z = eanDigito(runs.slice(k + 3 + e * 4, k + 7 + e * 4), false); if (!z) ok8 = false; else c8 += z.d; }
+    for (var f = 0; f < 4 && ok8; f++) { var w2 = eanDigito(runs.slice(k + 24 + f * 4, k + 28 + f * 4), false); if (!w2) ok8 = false; else c8 += w2.d; }
+    if (ok8 && eanValido(c8)) return c8;
+  }
+  return '';
+}
+function eanDeLinea(gris) {
+  var min = 255, max = 0, i;
+  for (i = 0; i < gris.length; i++) { if (gris[i] < min) min = gris[i]; if (gris[i] > max) max = gris[i]; }
+  if (max - min < 40) return '';
+  var umbral = (min + max) / 2, runs = [], actual = gris[0] < umbral, largo = 0, primeroOscuro = actual;
+  for (i = 0; i < gris.length; i++) { var o = gris[i] < umbral; if (o === actual) largo++; else { runs.push(largo); actual = o; largo = 1; } }
+  runs.push(largo);
+  var r = eanDeRuns(runs, primeroOscuro);
+  if (r) return r;
+  var inv = runs.slice().reverse(), oscuroFinal = (runs.length % 2 === 1) ? primeroOscuro : !primeroOscuro;
+  return eanDeRuns(inv, oscuroFinal);
+}
+function decodificarEAN(img) {
+  var w = img.width, h = img.height, d = img.data, gris = new Uint8Array(w * h), i;
+  for (i = 0; i < w * h; i++) gris[i] = (d[i * 4] * 299 + d[i * 4 + 1] * 587 + d[i * 4 + 2] * 114) / 1000;
+  var lineas = 40, r;
+  for (var t = 0; t < lineas; t++) {
+    var y = Math.round(h * (0.5 + (t % 2 ? 1 : -1) * Math.ceil(t / 2) / (lineas + 2)));
+    if (y < 0 || y >= h) continue;
+    r = eanDeLinea(gris.subarray(y * w, y * w + w));
+    if (r) return r;
+  }
+  for (var s = 0; s < lineas; s++) {
+    var x = Math.round(w * (0.5 + (s % 2 ? 1 : -1) * Math.ceil(s / 2) / (lineas + 2)));
+    if (x < 0 || x >= w) continue;
+    var col = new Uint8Array(h);
+    for (var j = 0; j < h; j++) col[j] = gris[j * w + x];
+    r = eanDeLinea(col);
+    if (r) return r;
+  }
+  return '';
+}
+
 </script>
 </body>
 </html>
-
-
